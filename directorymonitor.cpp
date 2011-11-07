@@ -8,6 +8,7 @@
 #include <QRegExp>
 #include <QTime>
 
+#include <QDebug>
 
 namespace
 {
@@ -48,6 +49,8 @@ bool DirectoryMonitor::setDirectory(const QString &path)
 
 bool DirectoryMonitor::addDirectory(const QString &path)
 {
+    qDebug() << "Adding directory" << path;
+
     QFileInfo info(path);
     if (!info.isDir())
         return false;
@@ -87,6 +90,8 @@ void DirectoryMonitor::manageDirectoryChanged(const QString &path)
 
         if (!logfiles.contains(path) && file.open(QIODevice::ReadOnly))
         {
+            qDebug() << "Processing file" << path;
+
             const QByteArray &data = file.readAll();
             if (data.isEmpty())
                 continue;
@@ -96,8 +101,10 @@ void DirectoryMonitor::manageDirectoryChanged(const QString &path)
             case '/':
             {
                 QRegExp regexp("^/(\\d{6})h(\\d{4}\\.\\d{2})(\\w)/(\\d{5}\\.\\d{2})(\\w)>(.*)");
-                if (regexp.indexIn(data) == -1)
+                if (regexp.indexIn(data) == -1) {
+                    qWarning() << "Malformed '/' packet" << data;
                     continue;
+                }
 
                 QTime time = QTime::fromString(regexp.cap(1), "HHmmss");
                 qreal latitude = convertLatitude(regexp.cap(2), regexp.cap(3));
@@ -113,8 +120,10 @@ void DirectoryMonitor::manageDirectoryChanged(const QString &path)
             case '>':
             {
                 QRegExp regexp("^>(\\d{6})h(\\D+)");
-                if (regexp.indexIn(data) == -1)
+                if (regexp.indexIn(data) == -1) {
+                    qWarning() << "Malformed '>' packet" << data;
                     continue;
+                }
 
                 QTime time = QTime::fromString(regexp.cap(1), "HHmmss");
                 QString message = regexp.cap(2);
@@ -123,6 +132,7 @@ void DirectoryMonitor::manageDirectoryChanged(const QString &path)
             }
             break;
             default:
+                qWarning() << "Unknown packet starting with '" << data.at(0) << "'";
                 continue;
             }
 
